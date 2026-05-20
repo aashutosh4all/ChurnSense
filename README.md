@@ -103,7 +103,7 @@ API documentation will be available at:
 http://127.0.0.1:8000/docs
 
 ## Project Structure
-
+```text
 customer-churn-retention-analysis/
 │
 ├── app/
@@ -136,7 +136,7 @@ customer-churn-retention-analysis/
 ├── requirements.txt
 ├── README.md
 └── LICENSE
-
+```
 ## Conclusion
 
 This project combines business analytics, SQL analysis, machine learning, dashboarding, and web app development to create an end-to-end customer churn prediction and retention analytics system.
