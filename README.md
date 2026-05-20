@@ -61,15 +61,15 @@ This model provided the best practical tradeoff between precision, recall, and F
 
 ### Churn Overview
 
-![Churn Overview](images/dashboard_overview.png)
+![Churn Overview](images/dashboard_p1_overview.png)
 
 ### Customer Segmentation Analysis
 
-![Customer Segmentation](images/dashboard_segmentation.png)
+![Customer Segmentation](images/dashboard_p2_segmentation.png)
 
 ### Risk and Retention Analysis
 
-![Risk Analysis](images/dashboard_risk_analysis.png)
+![Risk Analysis](images/dashboard_p3_risk_analysis.png)
 
 ## Streamlit Web App
 
