@@ -1,0 +1,7 @@
+{
+    "model_name": "Random Forest Classifier",
+    "threshold": 0.4,
+    "target": "Exited",
+    "purpose": "Customer churn prediction",
+    "note": "Final model trained on full cleaned dataset after model selection."
+}
