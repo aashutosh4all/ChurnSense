@@ -17,12 +17,12 @@ FROM
 GROUP BY Exited;
 
 SELECT 
-    Geography,
+    Country,
     COUNT(*) AS total_customers,
     SUM(Exited) AS churned_customers,
     ROUND(SUM(Exited) * 100.0 / COUNT(*), 2) AS churn_rate
 FROM bank_churn
-GROUP BY Geography
+GROUP BY Country
 ORDER BY churn_rate DESC;
 
 SELECT 
@@ -34,15 +34,15 @@ FROM bank_churn
 GROUP BY IsActiveMember;
 
 SELECT 
-    Geography,
+    Country,
     AgeGroup,
     IsActiveMember,
     COUNT(*) AS total_customers,
     SUM(Exited) AS churned_customers,
     ROUND(SUM(Exited) * 100.0 / COUNT(*), 2) AS churn_rate
 FROM bank_churn
-WHERE Geography = 'Germany'
-GROUP BY Geography, AgeGroup, IsActiveMember
+WHERE Country = 'Germany'
+GROUP BY Country, AgeGroup, IsActiveMember
 ORDER BY churn_rate DESC;
 
 SELECT *
@@ -61,7 +61,7 @@ WHERE AgeGroup = '' OR AgeGroup IS NULL;
 /*TOP 10 HIGH RISK CUSTOMER SEGMENT ANALYSIS*/
 WITH segment_churn AS (
     SELECT
-        Geography,
+        Country,
         AgeGroup,
         IsActiveMember,
         NumOfProducts,
@@ -69,7 +69,7 @@ WITH segment_churn AS (
         SUM(Exited) AS churned_customers,
         ROUND(SUM(Exited) * 100.0 / COUNT(*), 2) AS churn_rate
     FROM bank_churn
-    GROUP BY Geography, AgeGroup, IsActiveMember, NumOfProducts
+    GROUP BY Country, AgeGroup, IsActiveMember, NumOfProducts
 )
 
 SELECT *
@@ -81,17 +81,17 @@ LIMIT 10;
 /*REVENUE AT RISK ANALYSIS*/
 WITH churn_risk AS (
     SELECT
-        Geography,
+        Country,
         COUNT(*) AS total_customers,
         SUM(Exited) AS churned_customers,
         ROUND(SUM(Balance), 2) AS total_balance,
         ROUND(SUM(CASE WHEN Exited = 1 THEN Balance ELSE 0 END), 2) AS churned_balance
     FROM bank_churn
-    GROUP BY Geography
+    GROUP BY Country
 )
 
 SELECT
-    Geography,
+    Country,
     total_customers,
     churned_customers,
     ROUND(churned_customers * 100.0 / total_customers, 2) AS churn_rate,
@@ -104,20 +104,20 @@ ORDER BY balance_at_risk_pct DESC;
 /*AGE WISE SEGMENTATION OF ALL COUNTRIES: AGE GROUPS WITH TOP-2 CHURN RATE OF ALL COUNTRIES*/
 WITH age_geo_churn AS (
     SELECT
-        Geography,
+        Country,
         AgeGroup,
         COUNT(*) AS total_customers,
         SUM(Exited) AS churned_customers,
         ROUND(SUM(Exited) * 100.0 / COUNT(*), 2) AS churn_rate
     FROM bank_churn
-    GROUP BY Geography, AgeGroup
+    GROUP BY Country, AgeGroup
 ),
 
 ranked_segments AS (
     SELECT
         *,
         RANK() OVER (
-            PARTITION BY Geography
+            PARTITION BY Country
             ORDER BY churn_rate DESC
         ) AS churn_rank
     FROM age_geo_churn
@@ -126,12 +126,12 @@ ranked_segments AS (
 SELECT *
 FROM ranked_segments
 WHERE churn_rank <= 2
-ORDER BY Geography, churn_rank;
+ORDER BY Country, churn_rank;
 
 /*RISK SCORE ANALYSIS*/
 WITH customer_scores AS (
     SELECT *,
-        CASE WHEN Geography = 'Germany' THEN 2 ELSE 0 END +
+        CASE WHEN Country = 'Germany' THEN 2 ELSE 0 END +
         CASE WHEN Age >= 40 THEN 2 ELSE 0 END +
         CASE WHEN IsActiveMember = 0 THEN 2 ELSE 0 END +
         CASE WHEN Balance > 90000 THEN 1 ELSE 0 END +
@@ -161,7 +161,7 @@ LIMIT 20;
 WITH risk_segment AS (
     SELECT *
     FROM bank_churn
-    WHERE Geography = 'Germany'
+    WHERE Country = 'Germany'
       AND IsActiveMember = 0
       AND Age >= 40
       AND Balance > 90000
@@ -176,15 +176,15 @@ FROM risk_segment;
 
 WITH churn_contribution AS (
     SELECT
-        Geography,
+        Country,
         COUNT(*) AS total_customers,
         SUM(Exited) AS churned_customers
     FROM bank_churn
-    GROUP BY Geography
+    GROUP BY Country
 )
 
 SELECT
-    Geography,
+    Country,
     churned_customers,
     ROUND(
         churned_customers * 100.0 /
@@ -269,17 +269,17 @@ ORDER BY churn_rate DESC;
 
 WITH segment_churn AS (
     SELECT
-        Geography,
+        Country,
         AgeGroup,
         COUNT(*) AS total_customers,
         SUM(Exited) AS churned_customers,
         ROUND(SUM(Exited) * 100.0 / COUNT(*), 2) AS churn_rate
     FROM bank_churn
-    GROUP BY Geography, AgeGroup
+    GROUP BY Country, AgeGroup
 )
 
 SELECT
-    Geography,
+    Country,
     AgeGroup,
     total_customers,
     churned_customers,

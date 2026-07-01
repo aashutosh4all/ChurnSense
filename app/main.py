@@ -1,6 +1,7 @@
 from pathlib import Path
 import json
-
+import shap
+import numpy as np
 import joblib
 import pandas as pd
 from fastapi import FastAPI
@@ -37,13 +38,15 @@ with open(config_path, "r") as file:
 
 threshold = model_config.get("threshold", 0.4)
 
+# Initialize SHAP Explainer
+explainer = shap.TreeExplainer(model)
 
 # ----------------------------------------------------
 # Input schema
 # ----------------------------------------------------
 class CustomerData(BaseModel):
     CreditScore: int = Field(..., example=650)
-    Geography: str = Field(..., example="Germany")
+    Country: str = Field(..., example="Germany")
     Gender: str = Field(..., example="Female")
     Age: int = Field(..., example=45)
     Tenure: int = Field(..., example=3)
@@ -99,8 +102,8 @@ def preprocess_input(customer: CustomerData) -> pd.DataFrame:
 
             # One-hot encoded columns
             # France is baseline, so Germany = 0 and Spain = 0 means France
-            "Geography_Germany": 1 if customer.Geography == "Germany" else 0,
-            "Geography_Spain": 1 if customer.Geography == "Spain" else 0,
+            "Country_Germany": 1 if customer.Country == "Germany" else 0,
+            "Country_Spain": 1 if customer.Country == "Spain" else 0,
 
             # Female is baseline, so Gender_Male = 0 means Female
             "Gender_Male": 1 if customer.Gender == "Male" else 0
@@ -136,10 +139,24 @@ def health_check():
 def predict_churn(customer: CustomerData):
     processed_input = preprocess_input(customer)
 
+    # 1. Get standard prediction
     churn_probability = model.predict_proba(processed_input)[0][1]
     prediction = "Churn" if churn_probability >= threshold else "No Churn"
     risk_level = get_risk_level(churn_probability)
     suggestion = get_retention_suggestion(risk_level)
+
+    # 2. Calculate SHAP values for this customer
+    shap_vals = explainer.shap_values(processed_input)
+    
+    # Extract the values for Class 1 (Churn)
+    churn_shap_values = shap_vals[1][0] if isinstance(shap_vals, list) else shap_vals[0]
+    
+    # 3. Map values to columns and find top 3 reasons
+    feature_impacts = dict(zip(model_columns, churn_shap_values))
+    top_churn_drivers = sorted(feature_impacts.items(), key=lambda x: x[1], reverse=True)[:3]
+    
+    # Format for frontend
+    top_reasons = [{"feature": k, "impact_score": round(float(v), 4)} for k, v in top_churn_drivers if v > 0]
 
     return {
         "churn_probability": round(float(churn_probability), 4),
@@ -147,5 +164,6 @@ def predict_churn(customer: CustomerData):
         "prediction": prediction,
         "risk_level": risk_level,
         "threshold_used": threshold,
-        "retention_suggestion": suggestion
+        "retention_suggestion": suggestion,
+        "top_churn_drivers": top_reasons # <--- This is the new SHAP data!
     }

@@ -1,20 +1,19 @@
 from pathlib import Path
 import json
-
 import joblib
 import pandas as pd
 import plotly.graph_objects as go
 import streamlit as st
-
+import shap
+from groq import Groq
 
 # ─────────────────────────────────────────────────────────
 # Page config — must be first Streamlit call
 # ─────────────────────────────────────────────────────────
 st.set_page_config(
-    page_title="ChurnSense · Customer Retention Intelligence",
-    page_icon="📊",
+    page_title="ChurnSense AI",
     layout="wide",
-    initial_sidebar_state="expanded",
+    initial_sidebar_state="expanded"
 )
 
 
@@ -30,8 +29,8 @@ FEATURE_LABELS = {
     "HasCrCard":         "Has Credit Card",
     "IsActiveMember":    "Active Member",
     "EstimatedSalary":   "Est. Salary",
-    "Geography_Germany": "From Germany",
-    "Geography_Spain":   "From Spain",
+    "Country_Germany": "From Germany",
+    "Country_Spain":   "From Spain",
     "Gender_Male":       "Gender: Male",
 }
 
@@ -66,7 +65,7 @@ def load_artifacts():
 
 model, model_columns, model_config = load_artifacts()
 threshold = model_config.get("threshold", 0.4)
-
+explainer = shap.TreeExplainer(model)
 
 # ─────────────────────────────────────────────────────────
 # Sidebar — theme toggle + info
@@ -117,6 +116,10 @@ with st.sidebar:
         f"- **Type:** Binary Classification  \n"
         f"- **Features:** {len(model_columns)} variables"
     )
+    
+    st.markdown("**🔑 API Settings**")
+    groq_api_key = st.text_input("Groq API Key", type="password", help="Enter your Groq API key to unlock AI strategies.")
+    st.divider()
 
 
 # ─────────────────────────────────────────────────────────
@@ -160,9 +163,7 @@ st.markdown(f"""
 <style>
  /* ── Base ── */
   /* 1. Hide ONLY the specific top-right elements (Menu, Deploy) and footer */
-  [data-testid="stToolbar"] {{
-      display: none !important;
-  }}
+  
   footer {{
       display: none !important;
   }}
@@ -415,8 +416,8 @@ def preprocess_input(data: dict) -> pd.DataFrame:
         "HasCrCard":         data["HasCrCard"],
         "IsActiveMember":    data["IsActiveMember"],
         "EstimatedSalary":   data["EstimatedSalary"],
-        "Geography_Germany": 1 if data["Geography"] == "Germany" else 0,
-        "Geography_Spain":   1 if data["Geography"] == "Spain"   else 0,
+        "Country_Germany": 1 if data["Country"] == "Germany" else 0,
+        "Country_Spain":   1 if data["Country"] == "Spain"   else 0,
         "Gender_Male":       1 if data["Gender"]    == "Male"    else 0,
     }])
     return df.reindex(columns=model_columns, fill_value=0)
@@ -457,8 +458,8 @@ def build_gauge(prob_pct: float, risk_color: str) -> go.Figure:
     fig.update_layout(
         paper_bgcolor="rgba(0,0,0,0)",
         plot_bgcolor="rgba(0,0,0,0)",
-        height=220,
-        margin=dict(l=20, r=20, t=16, b=0),
+        height=280,                # Increase height from 220 to 280
+        margin=dict(l=20, r=20, t=50, b=20), # Add more top margin to push text down
         font={"family": "Sora, sans-serif", "color": text_main},
     )
     return fig
@@ -492,16 +493,17 @@ def build_importance_chart(mdl, columns: list) -> go.Figure:
     fig.update_layout(
         paper_bgcolor="rgba(0,0,0,0)",
         plot_bgcolor="rgba(0,0,0,0)",
-        height=280,
-        margin=dict(l=10, r=65, t=8, b=8),
+        height=300,
+        margin=dict(l=150, r=20, t=20, b=20),
         xaxis=dict(
             showgrid=True, gridcolor=grid_color, zeroline=False,
             showticklabels=False, fixedrange=True,
         ),
         yaxis=dict(
-            showgrid=False,
-            tickfont={"color": text_main, "size": 12, "family": "Sora, sans-serif"},
-            fixedrange=True,
+                showgrid=False,
+                automargin=True, # Added this to let Plotly handle text width
+                tickfont={"color": text_main, "size": 11, "family": "Sora, sans-serif"},
+                fixedrange=True,
         ),
         font={"family": "Sora, sans-serif", "color": text_main},
         hoverlabel=dict(
@@ -510,7 +512,57 @@ def build_importance_chart(mdl, columns: list) -> go.Figure:
         ),
     )
     return fig
-
+# ── Internal Bank Knowledge Base (RAG Context) ──
+BANK_POLICIES = """
+- High-Balance Customers (Balance > $100k): Eligible for 'Premium Wealth' tier, which includes a dedicated financial advisor and 0% wire fees.
+- Loyal Customers (Tenure >= 5 years): Eligible for a lifetime fee-free credit card and a 0.5% APY bonus on all savings accounts.
+- Inactive Customers (Active = No): Eligible for a 'Reactivation Campaign' offering a $200 cash bonus for setting up direct deposit.
+- Senior Customers (Age >= 55): Eligible for 'Senior Priority Banking', offering free cashier's checks, estate planning consultations, and higher CD yields.
+- Multi-Product Customers (Products >= 3): Eligible for consolidated relationship pricing (discounts on mortgage and auto loan rates).
+"""
+def generate_retention_strategy(api_key, customer_data, top_drivers):
+    client = Groq(api_key=api_key)
+    
+    # Format the top reasons into text for the AI to read
+    drivers_text = "\n".join([f"- {FEATURE_LABELS.get(f, f)} (Impact: +{imp:.3f})" for f, imp in top_drivers])
+    
+    # The Prompt: Telling the AI how to act
+    prompt = f"""
+    You are an expert Bank Customer Retention Strategist. 
+    A high-risk customer has been flagged for potential churn.
+    
+    Customer Profile:
+    - Age: {customer_data['Age']}
+    - Gender: {customer_data['Gender']}
+    - Balance: ${customer_data['Balance']:,.2f}
+    - Tenure: {customer_data['Tenure']} years
+    - Products: {customer_data['NumOfProducts']}
+    - Active Member: {'Yes' if customer_data['IsActiveMember'] else 'No'}
+    - Country: {customer_data['Country']}
+    Top reasons the AI flagged this customer for churn:
+    {drivers_text}
+    Bank Internal Policies & Offers:
+    {BANK_POLICIES}
+    
+    Task: 
+    1. Analyze the Customer Profile and the SHAP churn drivers.
+    2. Select the most relevant offer from the "Bank Internal Policies" that specifically addresses their churn risk.
+    3. Write a highly personalized, 2-to-3 sentence strategy for the account manager to use. 
+    
+    Do not use pleasantries or greetings. Be specific, actionable, and explicitly mention the bank policy you are applying.
+    """
+    
+    try:
+        client = Groq(api_key=api_key)
+        response = client.chat.completions.create(
+            messages=[{"role": "user", "content": prompt}],
+            model="llama-3.3-70b-versatile",
+            temperature=0.7,
+            max_tokens=200
+        )
+        return response.choices[0].message.content
+    except Exception as e:
+        return f"Error connecting to AI: {str(e)}"
 
 # ─────────────────────────────────────────────────────────
 # Page header
@@ -575,7 +627,7 @@ with left_col:
         credit_score = st.slider("Credit Score", 300, 900, 650, 10,
                                  help="FICO-style credit score (300 = poor, 900 = excellent)")
 
-        geography = st.selectbox("Geography", ["France", "Germany", "Spain"])
+        Country = st.selectbox("Country", ["France", "Germany", "Spain"])
         gender    = st.radio("Gender", ["Female", "Male"], horizontal=True)
 
         a_col, t_col = st.columns(2)
@@ -608,7 +660,7 @@ with right_col:
         # ── Build input & predict ──
         customer_data = {
             "CreditScore":    credit_score,
-            "Geography":      geography,
+            "Country":      Country,
             "Gender":         gender,
             "Age":            age,
             "Tenure":         tenure,
@@ -678,15 +730,72 @@ with right_col:
             unsafe_allow_html=True,
         )
 
-        # ── Retention recommendation ──
-        st.markdown(f"""
-            <div class="retention-box a5">
-                <div class="ret-icon">{ret_icon}</div>
-                <div>
-                    <div class="ret-label">Retention Recommendation</div>
-                    <div class="ret-text">{ret_text}</div>
-                </div>
-            </div>""", unsafe_allow_html=True)
+        # ── SHAP Explainability (NEW AI BRAIN) ──
+        if prediction == "Churn":
+            # 1. Calculate SHAP values
+            import numpy as np
+            shap_vals = explainer.shap_values(processed)
+            
+            # Safely flatten whatever shape SHAP returns into a simple 1D list of numbers
+            if isinstance(shap_vals, list):
+                churn_shap_values = np.array(shap_vals[1]).flatten()
+            else:
+                churn_shap_values = np.array(shap_vals).flatten()
+                
+            # Keep only the numbers corresponding to our features
+            churn_shap_values = churn_shap_values[-len(model_columns):]
+            
+            # 2. Match values to features and sort top 3 positive impacts
+            feature_impacts = dict(zip(model_columns, churn_shap_values))
+            
+            # Force conversion to float to prevent truth value errors
+            top_churn_drivers = sorted(
+                [item for item in feature_impacts.items() if float(item[1]) > 0], 
+                key=lambda x: float(x[1]), 
+                reverse=True
+            )[:3]
+
+            # 3. Display them beautifully in the UI
+            if top_churn_drivers:
+                st.markdown('<div class="section-heading" style="margin-top:1rem;">🔍 Key Churn Drivers (For This Customer)</div>', unsafe_allow_html=True)
+                
+                for feature, impact in top_churn_drivers:
+                    # Get the actual value the customer inputted for this feature
+                    actual_value = processed[feature].iloc[0]
+                    clean_name = FEATURE_LABELS.get(feature, feature)
+                    
+                    # Translate confusing 0 values into plain English
+                    if "Country" in feature and actual_value == 0:
+                        friendly_name = f"Not from {feature.split('_')[1]}"
+                    elif "Gender" in feature and actual_value == 0:
+                        friendly_name = "Gender: Female"
+                    else:
+                        friendly_name = f"{clean_name} (Value: {actual_value})"
+                        
+                    st.markdown(f"- **{friendly_name}** (Impact risk: `+{impact:.3f}`)")
+            
+            # ── AI Retention Copilot (GenAI) ──
+        if prediction == "Churn":
+            st.markdown('<div class="section-heading" style="margin-top:1.5rem;">🤖 AI Retention Strategist</div>', unsafe_allow_html=True)
+            
+            if not groq_api_key:
+                st.info("💡 Enter your Groq API Key in the sidebar to generate a highly personalized AI retention strategy.")
+            else:
+                with st.spinner("Generating AI strategy using Llama 3..."):
+                    ai_strategy = generate_retention_strategy(
+                        api_key=groq_api_key,
+                        customer_data=customer_data,
+                        top_drivers=top_churn_drivers
+                    )
+                    
+                    st.markdown(f"""
+                    <div class="retention-box a6">
+                        <div class="ret-icon">✨</div>
+                        <div>
+                            <div class="ret-label">Personalized Action Plan (Groq / Llama 3)</div>
+                            <div class="ret-text" style="font-weight: 500;">{ai_strategy}</div>
+                        </div>
+                    </div>""", unsafe_allow_html=True)
 
         # ── Feature importance ──
         with st.expander("📊 Feature Importance (model-level)"):
@@ -701,7 +810,7 @@ with right_col:
         with st.expander("📋 Customer Input Summary"):
             readable = {
                 "Credit Score":    customer_data["CreditScore"],
-                "Geography":       customer_data["Geography"],
+                "Country":       customer_data["Country"],
                 "Gender":          customer_data["Gender"],
                 "Age":             customer_data["Age"],
                 "Tenure (yrs)":    customer_data["Tenure"],
@@ -711,8 +820,12 @@ with right_col:
                 "Active Member":   "Yes" if customer_data["IsActiveMember"] else "No",
                 "Est. Salary":     f"{customer_data['EstimatedSalary']:,.0f}",
             }
+            
+            # Convert all mixed types to strings to prevent PyArrow crashes
+            readable_str = {k: str(v) for k, v in readable.items()}
+            
             st.dataframe(
-                pd.DataFrame.from_dict(readable, orient="index", columns=["Value"]),
+                pd.DataFrame.from_dict(readable_str, orient="index", columns=["Value"]),
                 use_container_width=True,
             )
 

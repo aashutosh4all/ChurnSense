@@ -30,8 +30,8 @@ with st.form("customer_form"):
         value=650
     )
 
-    geography = st.selectbox(
-        "Geography",
+    Country = st.selectbox(
+        "Country",
         ["France", "Germany", "Spain"]
     )
 
@@ -92,7 +92,7 @@ if submitted:
 
     customer_data = {
         "CreditScore": credit_score,
-        "Geography": geography,
+        "Country": Country,
         "Gender": gender,
         "Age": age,
         "Tenure": tenure,
@@ -114,6 +114,7 @@ if submitted:
             risk_level = result["risk_level"]
             threshold = result["threshold_used"]
             suggestion = result["retention_suggestion"]
+            top_drivers = result.get("top_churn_drivers", []) 
 
             st.divider()
             st.subheader("Prediction Result")
@@ -134,6 +135,14 @@ if submitted:
 
             st.write(f"**Risk Level:** {risk_level}")
             st.write(f"**Threshold Used:** {threshold}")
+
+            # --- NEW SHAP DISPLAY BLOCK ---
+            if top_drivers and prediction == "Churn":
+                st.markdown("### 🔍 Top Reasons for Churn Risk")
+                for driver in top_drivers:
+                    st.write(f"- **{driver['feature']}** (Impact: +{driver['impact_score']})")
+            # ------------------------------
+
 
             if prediction == "Churn":
                 st.warning("This customer is likely to churn.")
