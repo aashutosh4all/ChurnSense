@@ -61,15 +61,15 @@ This model provided the best practical tradeoff between precision, recall, and F
 
 ### Churn Overview
 
-![Churn Overview](images/dashboard_overview.png)
+![Churn Overview](images/dashboard_p1_overview.png)
 
 ### Customer Segmentation Analysis
 
-![Customer Segmentation](images/dashboard_segmentation.png)
+![Customer Segmentation](images/dashboard_p2_segmentation.png)
 
 ### Risk and Retention Analysis
 
-![Risk Analysis](images/dashboard_risk_analysis.png)
+![Risk Analysis](images/dashboard_p3_risk_analysis.png)
 
 ## Streamlit Web App
 
@@ -103,7 +103,7 @@ API documentation will be available at:
 http://127.0.0.1:8000/docs
 
 ## Project Structure
-
+```text
 customer-churn-retention-analysis/
 │
 ├── app/
@@ -136,7 +136,7 @@ customer-churn-retention-analysis/
 ├── requirements.txt
 ├── README.md
 └── LICENSE
-
+```
 ## Conclusion
 
 This project combines business analytics, SQL analysis, machine learning, dashboarding, and web app development to create an end-to-end customer churn prediction and retention analytics system.
