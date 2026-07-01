@@ -1,116 +1,122 @@
-# ChurnSense
+# ChurnSense AI: Predictive & Generative Customer Retention
 
-End-to-end customer churn prediction and retention analytics project using Python, SQL, Power BI, Machine Learning, FastAPI, and Streamlit.
+End-to-end customer churn prediction and retention analytics project using Python, SQL, Machine Learning, and Generative AI (RAG).
 
 ## Project Overview
 
-This project analyzes bank customer churn behavior and builds a machine learning-based churn prediction system. The goal is to identify key churn drivers, segment high-risk customers, visualize business insights through Power BI, and provide an interactive web app for individual customer churn prediction.
+ChurnSense AI is an intelligent retention platform that moves beyond simple churn prediction. It combines predictive machine learning with Retrieval-Augmented Generation (RAG) to provide actionable, policy-driven retention strategies for at-risk customers. The system identifies key churn drivers, visualizes business insights, and generates specific manager interventions based on internal bank policies.
+
+## System Architecture
+
+### 1. Predictive Engine (Machine Learning)
+- **Model:** Random Forest Classifier (optimized at a 0.4 decision threshold).
+- **Explainability:** SHAP (SHapley Additive exPlanations) values identify the exact mathematical features (e.g., Age, Tenure, Product Usage) driving an individual's churn risk.
+- **Analytics:** SQL-driven exploratory data analysis and Power BI segmentation.
+
+### 2. Generative Retention Engine (RAG)
+- **Framework:** Retrieval-Augmented Generation (RAG).
+- **LLM:** Groq API (Llama-3.3-70b-versatile).
+- **Intelligence:** The system maps the specific SHAP-identified risk factors against an internal Knowledge Base of Bank Policies. It then generates personalized, hallucination-free retention strategies for account managers to execute.
 
 ## Objectives
 
-- Analyze customer churn patterns using Python and SQL
-- Identify major churn drivers through exploratory data analysis
-- Build and evaluate machine learning models for churn prediction
-- Create an interactive Power BI dashboard for business insights
-- Develop a Streamlit web app for customer-level churn prediction
-- Provide retention recommendations based on churn risk level
+- Analyze customer churn patterns using Python and SQL.
+- Identify major churn drivers through exploratory data analysis.
+- Build and evaluate machine learning models for churn prediction.
+- Implement Explainable AI (SHAP) to interpret individual predictions.
+- Develop a RAG pipeline to generate context-aware retention strategies.
+- Create an interactive Power BI dashboard for business insights.
+- Deploy a Streamlit web app for end-to-end prediction and generation.
 
 ## Tools and Technologies
 
-- Python
-- Pandas, NumPy
-- Matplotlib, Seaborn
-- Scikit-learn
-- MySQL
-- Power BI
-- FastAPI
-- Streamlit
-- Plotly
+- **Languages:** Python, SQL
+- **Machine Learning:** Scikit-learn, Pandas, NumPy, SHAP
+- **Generative AI:** Groq API, Llama-3, python-dotenv
+- **Database & Viz:** MySQL, Power BI, Matplotlib, Seaborn, Plotly
+- **Deployment & API:** FastAPI, Streamlit
 
-## Project Workflow
+## RAG System Evaluation Metrics
 
-1. Data cleaning and preprocessing
-2. Exploratory data analysis
-3. SQL-based churn analysis
-4. Machine learning model training and evaluation
-5. Threshold tuning and final model selection
-6. Power BI dashboard creation
-7. Streamlit web app development
+To ensure the reliability of the AI-generated retention strategies, the RAG pipeline was evaluated using an LLM-as-a-Judge framework on edge-case customer profiles:
+
+| Test Case             | Latency (sec) | Faithfulness (1-5) | Relevance (1-5) | Policy Match (1-5) |
+|:----------------------|--------------:|-------------------:|----------------:|-------------------:|
+| High Balance & Senior | 6.43          | 5                  | 5               | 5                  |
+| Loyal but Inactive    | 0.76          | 5                  | 5               | 5                  |
+| Multi-Product Risk    | 0.76          | 5                  | 4               | 5                  |
+
+*Note: Initial latency reflects connection overhead; subsequent generations operate at sub-second speeds. High Faithfulness scores indicate strict adherence to internal policies without hallucination.*
 
 ## Key Insights
 
-- Overall customer churn rate was approximately 20.37%.
-- Germany showed the highest churn rate among all regions.
-- Inactive customers churned at a much higher rate than active customers.
-- Customers aged 51–60 showed the highest churn tendency.
-- Customers with more than two products showed unusually high churn rates.
-- Medium-to-high balance customers showed elevated churn risk.
-- Credit score and estimated salary were weaker standalone churn indicators.
-
-## Machine Learning Summary
-
-Multiple models were trained and compared, including Logistic Regression, Balanced Logistic Regression, Random Forest, and XGBoost.
-
-The final operational model selected was:
-
-**Random Forest Classifier with a 0.4 decision threshold**
-
-This model provided the best practical tradeoff between precision, recall, and F1-score for churn detection.
+- **Overall churn rate** was approximately 20.37%.
+- **Germany** showed the highest churn rate among all regions.
+- **Inactive customers** churned at a much higher rate than active customers.
+- Customers **aged 51–60** showed the highest churn tendency.
+- Customers with **more than two products** showed unusually high churn rates.
+- **GenAI Application:** The RAG system successfully maps these specific demographic and product risks directly to actionable policies (e.g., matching Multi-Product risk to Consolidated Relationship Pricing).
 
 ## Power BI Dashboard
 
 ### Churn Overview
-
 ![Churn Overview](images/dashboard_p1_overview.png)
 
 ### Customer Segmentation Analysis
-
 ![Customer Segmentation](images/dashboard_p2_segmentation.png)
 
 ### Risk and Retention Analysis
-
 ![Risk Analysis](images/dashboard_p3_risk_analysis.png)
 
 ## Streamlit Web App
 
-The Streamlit app predicts churn probability for an individual customer and provides:
-
-- Churn probability
-- Churn / No Churn prediction
-- Risk level
-- Retention recommendation
-- Feature importance view
+The Streamlit app acts as the front-end for the dual-engine system, providing:
+- Churn probability and risk classification.
+- SHAP feature importance visualization.
+- AI-generated, policy-backed retention recommendations.
 
 ![Streamlit App](images/streamlit_app.png)
 
-## How to Run the Streamlit App
+## How to Run the Application
 
+### 1. Streamlit Web App
 Navigate to the app folder:
+```bash
 cd app
+```
 
 Install dependencies:
+```bash
 pip install -r requirements.txt
+```
+
+Set up your environment variables by creating a `.env` file in the root directory:
+```text
+GROQ_API_KEY=your_api_key_here
+```
 
 Run the standalone Streamlit app:
+```bash
 python -m streamlit run app_standalone.py
+```
 
-FastAPI Backend
-To run the FastAPI backend:
-cd app
+### 2. FastAPI Backend
+To run the FastAPI backend, ensure you are in the `app` directory:
+```bash
 python -m uvicorn main:app --reload
-
-API documentation will be available at:
-http://127.0.0.1:8000/docs
+```
+API documentation will be available at: http://127.0.0.1:8000/docs
 
 ## Project Structure
+
 ```text
 customer-churn-retention-analysis/
 │
 ├── app/
-│   ├── artifacts/
-│   ├── app_standalone.py
+│   ├── artifacts/             # Trained ML models and feature mapping
+│   ├── app_standalone.py      # Main Streamlit App + GenAI RAG Logic
 │   ├── app.py
-│   ├── main.py
+│   ├── main.py                # FastAPI Backend
 │   ├── requirements.txt
 │   └── RUN_APP.md
 │
@@ -133,10 +139,11 @@ customer-churn-retention-analysis/
 ├── sql/
 │   └── churn_analysis_queries.sql
 │
+├── rag_evaluator.py           # GenAI automated evaluation script
 ├── requirements.txt
 ├── README.md
 └── LICENSE
 ```
-## Conclusion
 
-This project combines business analytics, SQL analysis, machine learning, dashboarding, and web app development to create an end-to-end customer churn prediction and retention analytics system.
+### Conclusion
+This project integrates traditional machine learning with modern Generative AI to provide a comprehensive retention solution. - - By combining SHAP-based explainability with LLM-generated strategies, ChurnSense AI enables data-driven decisions that are both accurate and strictly aligned with business policy.
