@@ -10,3 +10,5 @@ pydantic
 streamlit
 requests
 plotly
+groq
+shap
