@@ -671,7 +671,7 @@ with right_col:
             "EstimatedSalary": float(estimated_salary),
         }
         processed   = preprocess_input(customer_data)
-        churn_prob  = float(model.predict_proba(processed)[0][1])
+        churn_prob  = float(model.predict_proba(processed.values)[0][1])
         churn_pct   = round(churn_prob * 100, 2)
         prediction  = "Churn" if churn_prob >= threshold else "No Churn"
         risk        = get_risk_level(churn_prob)
