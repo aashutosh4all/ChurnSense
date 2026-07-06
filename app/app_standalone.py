@@ -569,7 +569,7 @@ def generate_retention_strategy(api_key, customer_data, top_drivers):
 # ─────────────────────────────────────────────────────────
 st.markdown(
     '<div class="app-title">Churn<span>Sense</span></div>'
-    '<div class="app-sub">Customer churn intelligence · Powered by Random Forest</div>',
+    '<div class="app-sub">Customer churn intelligence · Powered by XGBoost</div>',
     unsafe_allow_html=True,
 )
 
@@ -579,7 +579,7 @@ tc1, tc2, tc3, tc4 = st.columns(4)
 stats = [
     {
         "title": "Prediction Model",
-        "value": "Random Forest",
+        "value": "XGBoost",
         "sub": "trained classifier"
     },
     {
@@ -649,7 +649,7 @@ with left_col:
             is_active    = st.radio("Active?", ["Yes", "No"])
 
         st.markdown("<br>", unsafe_allow_html=True)
-        submitted = st.form_submit_button("🔍  Predict Churn")
+        submitted = st.form_submit_button("Predict Churn")
 
 
 # ── RIGHT: prediction output ──────────────────────────────
