@@ -1,1 +1,13 @@
-["CreditScore", "Age", "Tenure", "Balance", "NumOfProducts", "HasCrCard", "IsActiveMember", "EstimatedSalary", "Country_Germany", "Country_Spain", "Gender_Male"]
+[
+    "CreditScore",
+    "Age",
+    "Tenure",
+    "Balance",
+    "NumOfProducts",
+    "HasCrCard",
+    "IsActiveMember",
+    "EstimatedSalary",
+    "Country_Germany",
+    "Country_Spain",
+    "Gender_Male"
+]

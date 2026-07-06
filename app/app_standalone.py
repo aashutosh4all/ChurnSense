@@ -56,7 +56,7 @@ RETENTION_META = {
 def load_artifacts():
     base_dir   = Path(__file__).resolve().parent
     arts       = base_dir / "artifacts"
-    model      = joblib.load(arts / "final_random_forest_churn_model.pkl")
+    model      = joblib.load(arts / "final_model.pkl")
     with open(arts / "model_columns.json") as f:
         columns = json.load(f)
     with open(arts / "model_config.json") as f:
@@ -64,7 +64,7 @@ def load_artifacts():
     return model, columns, config
 
 model, model_columns, model_config = load_artifacts()
-threshold = model_config.get("threshold", 0.4)
+threshold = model_config.get("Threshold", 0.55)
 explainer = shap.TreeExplainer(model)
 
 # ─────────────────────────────────────────────────────────
@@ -111,7 +111,7 @@ with st.sidebar:
 
     st.markdown("**⚙️ Model Info**")
     st.markdown(
-        f"- **Model:** {model_config.get("ML Model Used", "Random Forest")}  \n"
+        f"- **Model:** {model_config.get("ML Model Used", "XG-Boost")}  \n"
         f"- **Threshold:** {threshold}  \n"
         f"- **Type:** Binary Classification  \n"
         f"- **Features:** {len(model_columns)} variables"
