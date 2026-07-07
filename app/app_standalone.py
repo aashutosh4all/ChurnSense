@@ -1118,7 +1118,17 @@ with right_col:
         )
 
         # ── SHAP Explainability (NEW AI BRAIN) ──
-        if prediction == "Churn":
+        # ==========================================================
+        # Customer Explanation Controller
+        # ==========================================================
+
+        show_recommendation = True
+        show_policy = risk in ["Moderate Risk", "High Risk", "Critical Risk"]
+        show_customer_summary = show_policy
+        show_shap = risk in ["High Risk", "Critical Risk"]
+        show_ai = risk in ["High Risk", "Critical Risk"]
+
+        if show_shap:
             # 1. Calculate SHAP values
             shap_vals = explainer.shap_values(processed)
             
@@ -1196,7 +1206,7 @@ with right_col:
                     )
             
             # ── AI Retention Copilot (GenAI) ──
-        if prediction == "Churn":
+        if show_ai:
             st.markdown('<div class="section-heading" style="margin-top:1.5rem;">🤖 AI Retention Strategist</div>', unsafe_allow_html=True)
             
             if not groq_api_key:
@@ -1210,20 +1220,36 @@ with right_col:
                         churn_probability=churn_prob
                     )
                     
-                    st.markdown(
-                        f"""
-                        <div class="retention-box a5">
-                            <div class="ret-icon">{ret_icon}</div>
-                            <div>
-                                <div class="ret-label">{ret_title}</div>
-                                <div class="ret-text">
-                                    {recommendation_text}
-                                </div>
-                            </div>
-                        </div>
-                        """,
-                        unsafe_allow_html=True
+                    # ── Intelligent Retention Recommendation ────────────────────────
+        if show_recommendation:
+
+            recommendation_text = ret_default
+
+            if show_policy:
+                retrieved_policies = retrieve_relevant_policies(customer_data)
+
+                if retrieved_policies:
+                    top_policy = retrieved_policies[0]
+                    recommendation_text += (
+                        "<br><br>"
+                        "<b>Suggested Internal Policy</b><br>"
+                        f"{top_policy['title']}"
                     )
+
+            st.markdown(
+                f"""
+                <div class="retention-box a5">
+                    <div class="ret-icon">{ret_icon}</div>
+                    <div>
+                        <div class="ret-label">{ret_title}</div>
+                        <div class="ret-text">
+                            {recommendation_text}
+                        </div>
+                    </div>
+                </div>
+                """,
+                unsafe_allow_html=True
+            )
         # ── Feature importance ──
         with st.expander("📊 Feature Importance (model-level)"):
             st.caption("Top 8 features by mean impurity decrease — not customer-specific.")
