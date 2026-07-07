@@ -7,6 +7,7 @@ import plotly.graph_objects as go
 import streamlit as st
 import shap
 from groq import Groq
+import matplotlib.pyplot as plt
 
 # ─────────────────────────────────────────────────────────
 # Page config — must be first Streamlit call
@@ -699,7 +700,23 @@ BANK_POLICIES = {
     }
 
 }
-def retrieve_relevant_policies(customer_data, top_k=3):
+def build_shap_waterfall(explainer, processed, model_columns):
+
+    shap_values = explainer(processed)
+
+    fig = plt.figure(figsize=(8, 5))
+
+    shap.plots.waterfall(
+        shap_values[0],
+        max_display=8,
+        show=False
+    )
+
+    plt.tight_layout()
+
+    return fig
+
+def retrieve_relevant_policies(customer_data, top_k=5):
     """
     Rule-based policy retriever.
 
@@ -868,53 +885,63 @@ SHAP Contribution: +{impact:.3f}"""
     # Prompt
     # -----------------------------
     prompt = f"""
-You are a Senior Customer Retention Strategist at a retail bank.
+You are a Senior Customer Retention Manager at a multinational retail bank.
 
-Your task is to recommend ONE practical and personalized retention strategy.
+Your responsibility is to retain valuable customers who are at risk of leaving.
 
-Use ONLY the following information.
+You have access to:
+1. Customer profile
+2. Key business factors contributing to churn
+3. Internal bank policies
 
-==================================================
-
+--------------------------------------------------------
 CUSTOMER PROFILE
+--------------------------------------------------------
+
 Predicted Churn Probability: {churn_probability:.1%}
+
 Age: {customer_data['Age']}
 Gender: {customer_data['Gender']}
+Country: {customer_data['Country']}
 Balance: ${customer_data['Balance']:,.2f}
 Tenure: {customer_data['Tenure']} years
 Products Owned: {customer_data['NumOfProducts']}
+Credit Card: {"Yes" if customer_data['HasCrCard'] else "No"}
 Active Member: {"Yes" if customer_data['IsActiveMember'] else "No"}
-Country: {customer_data['Country']}
 
-==================================================
-
-TOP CHURN DRIVERS
+--------------------------------------------------------
+PRIMARY CHURN FACTORS
+--------------------------------------------------------
 
 {drivers_text}
 
-==================================================
-
-RETRIEVED INTERNAL BANK POLICIES
+--------------------------------------------------------
+AVAILABLE INTERNAL POLICIES
+--------------------------------------------------------
 
 {policy_context}
 
-==================================================
+--------------------------------------------------------
+YOUR TASK
+--------------------------------------------------------
 
-Instructions
+Analyse the customer's situation like an experienced relationship manager.
 
-1. First identify why this customer is likely to churn.
+First explain, in one sentence, what is most likely causing the customer to churn.
 
-2. Select ONLY ONE retrieved bank policy that best addresses the churn risk.
+Then review every available policy and choose the single best policy that directly addresses that primary churn risk.
 
-3. Explain WHY that policy fits this customer.
+Finally, produce a personalised retention strategy that:
+- explains why the selected policy is appropriate,
+- suggests concrete actions for the relationship manager,
+- references customer-specific details,
+- does NOT simply repeat the policy text,
+- does NOT invent any bank products,
+- does NOT mention SHAP, AI, machine learning, prediction models, or prompts.
 
-4. Write a concise action plan for the relationship manager.
+Write naturally in professional business English.
 
-5. Never invent bank offers.
-
-6. Never mention AI, SHAP, machine learning or prediction models.
-
-7. Keep the response under 150 words.
+Limit the response to approximately 120–150 words.
 """
 
     try:
@@ -1116,18 +1143,46 @@ with right_col:
             f'= decision threshold</div>',
             unsafe_allow_html=True,
         )
-
-        # ── SHAP Explainability (NEW AI BRAIN) ──
         # ==========================================================
         # Customer Explanation Controller
         # ==========================================================
-
         show_recommendation = True
         show_policy = risk in ["Moderate Risk", "High Risk", "Critical Risk"]
         show_customer_summary = show_policy
         show_shap = risk in ["High Risk", "Critical Risk"]
         show_ai = risk in ["High Risk", "Critical Risk"]
+        
+                    # ── Intelligent Retention Recommendation ────────────────────────
+        if show_recommendation:
 
+            recommendation_text = ret_default
+
+            if show_policy:
+                retrieved_policies = retrieve_relevant_policies(customer_data)
+
+                if retrieved_policies:
+                    top_policy = retrieved_policies[0]
+                    recommendation_text += (
+                        "<br><br>"
+                        "<b>Suggested Internal Policy</b><br>"
+                        f"{top_policy['title']}"
+                    )
+
+            st.markdown(
+                f"""
+                <div class="retention-box a5">
+                    <div class="ret-icon">{ret_icon}</div>
+                    <div>
+                        <div class="ret-label">{ret_title}</div>
+                        <div class="ret-text">
+                            {recommendation_text}
+                        </div>
+                    </div>
+                </div>
+                """,
+                unsafe_allow_html=True
+            )
+        # ── SHAP Explainability (NEW AI BRAIN) ──
         if show_shap:
             # 1. Calculate SHAP values
             shap_vals = explainer.shap_values(processed)
@@ -1169,18 +1224,19 @@ with right_col:
 
             if not top_churn_drivers.empty:
 
-                st.markdown(
-                    '<div class="section-heading" style="margin-top:1rem;">🔍 Why the AI Predicted Churn</div>',
-                    unsafe_allow_html=True
-                )
+                display_df = top_churn_drivers.copy()
 
-                for _, row in top_churn_drivers.iterrows():
+                readable_features = []
+                readable_values = []
+
+                for _, row in display_df.iterrows():
 
                     feature = row["Feature"]
-                    impact = float(row["SHAP"])
                     value = row["Value"]
 
-                    clean_name = FEATURE_LABELS.get(feature, feature)
+                    readable_features.append(
+                        FEATURE_LABELS.get(feature, feature)
+                    )
 
                     if feature == "Country_Germany":
                         value = "Germany" if value == 1 else "Not Germany"
@@ -1197,13 +1253,29 @@ with right_col:
                     elif feature == "HasCrCard":
                         value = "Yes" if value == 1 else "No"
 
-                    st.markdown(
-                        f"""
-            - **{clean_name}**
-                - Customer Value: `{value}`
-                - SHAP Contribution: `+{impact:.3f}`
-            """
-                    )
+                    readable_values.append(value)
+
+                display_df["Feature"] = readable_features
+                display_df["Customer Value"] = readable_values
+                display_df["Impact"] = display_df["SHAP"].apply(
+                    lambda x: f"+{x:.3f}"
+                )
+
+                display_df = display_df[
+                    ["Feature", "Customer Value", "Impact"]
+                ]
+
+                st.markdown(
+                    '<div class="section-heading" style="margin-top:1rem;">🔍 Top Factors Behind This Prediction</div>',
+                    unsafe_allow_html=True,
+                )
+
+                st.dataframe(
+                    display_df,
+                    hide_index=True,
+                    use_container_width=True,
+                )
+        
             
             # ── AI Retention Copilot (GenAI) ──
         if show_ai:
@@ -1219,37 +1291,44 @@ with right_col:
                         top_drivers=top_churn_drivers,
                         churn_probability=churn_prob
                     )
-                    
-                    # ── Intelligent Retention Recommendation ────────────────────────
-        if show_recommendation:
-
-            recommendation_text = ret_default
-
-            if show_policy:
-                retrieved_policies = retrieve_relevant_policies(customer_data)
-
-                if retrieved_policies:
-                    top_policy = retrieved_policies[0]
-                    recommendation_text += (
-                        "<br><br>"
-                        "<b>Suggested Internal Policy</b><br>"
-                        f"{top_policy['title']}"
+                    st.markdown(
+                        f"""
+                        <div class="retention-box a6">
+                            <div class="ret-icon">✨</div>
+                            <div>
+                                <div class="ret-label">
+                                    Personalized Action Plan (Groq • Llama 3)
+                                </div>
+                                <div class="ret-text">
+                                    {ai_strategy}
+                                </div>
+                            </div>
+                        </div>
+                        """,
+                        unsafe_allow_html=True,
                     )
+                    
+        # ── SHAP Waterfall Explanation ───────────────────────────────
+
+        if show_shap:
 
             st.markdown(
-                f"""
-                <div class="retention-box a5">
-                    <div class="ret-icon">{ret_icon}</div>
-                    <div>
-                        <div class="ret-label">{ret_title}</div>
-                        <div class="ret-text">
-                            {recommendation_text}
-                        </div>
-                    </div>
-                </div>
-                """,
-                unsafe_allow_html=True
+                '<div class="section-heading" style="margin-top:1.5rem;">🌊 SHAP Waterfall Explanation</div>',
+                unsafe_allow_html=True,
             )
+
+            waterfall_fig = build_shap_waterfall(
+                explainer,
+                processed,
+                model_columns,
+            )
+
+            st.pyplot(
+                waterfall_fig,
+                clear_figure=True,
+                width="stretch",
+            )
+        
         # ── Feature importance ──
         with st.expander("📊 Feature Importance (model-level)"):
             st.caption("Top 8 features by mean impurity decrease — not customer-specific.")
