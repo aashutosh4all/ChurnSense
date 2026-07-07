@@ -144,8 +144,8 @@ with st.sidebar:
     st.markdown("**🎯 Risk Levels**")
     st.markdown(
         "🟢 **Low** · < 30%  \n"
-        "🟡 **Moderate** · 30 – 50%  \n"
-        "🟠 **High** · 50 – 70%  \n"
+        "🟡 **Moderate** · 30 – 55%  \n"
+        "🟠 **High** · 55 – 70%  \n"
         "🔴 **Critical** · > 70%"
     )
     st.divider()
@@ -442,7 +442,7 @@ st.markdown(f"""
 # ─────────────────────────────────────────────────────────
 def get_risk_level(prob: float) -> str:
     if prob < 0.30: return "Low Risk"
-    if prob < 0.50: return "Moderate Risk"
+    if prob < 0.55: return "Moderate Risk"
     if prob < 0.70: return "High Risk"
     return "Critical Risk"
 
