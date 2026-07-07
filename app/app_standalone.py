@@ -2,6 +2,7 @@ from pathlib import Path
 import json
 import joblib
 import pandas as pd
+import numpy as np
 import plotly.graph_objects as go
 import streamlit as st
 import shap
@@ -33,6 +34,46 @@ FEATURE_LABELS = {
     "Country_Spain":   "From Spain",
     "Gender_Male":       "Gender: Male",
 }
+def format_feature_value(feature, value):
+    """
+    Converts encoded model features into human-readable text.
+    """
+
+    if feature == "Country_Germany":
+        return "Country: Germany" if value == 1 else "Country: Not Germany"
+
+    elif feature == "Country_Spain":
+        return "Country: Spain" if value == 1 else "Country: Not Spain"
+
+    elif feature == "Gender_Male":
+        return "Gender: Male" if value == 1 else "Gender: Female"
+
+    elif feature == "IsActiveMember":
+        return "Active Member: Yes" if value == 1 else "Active Member: No"
+
+    elif feature == "HasCrCard":
+        return "Credit Card: Yes" if value == 1 else "Credit Card: No"
+
+    elif feature == "Balance":
+        return f"Balance: ${value:,.2f}"
+
+    elif feature == "EstimatedSalary":
+        return f"Estimated Salary: ${value:,.2f}"
+
+    elif feature == "Age":
+        return f"Age: {int(value)} years"
+
+    elif feature == "Tenure":
+        return f"Tenure: {int(value)} years"
+
+    elif feature == "NumOfProducts":
+        return f"Products Owned: {int(value)}"
+
+    elif feature == "CreditScore":
+        return f"Credit Score: {int(value)}"
+
+    else:
+        return f"{FEATURE_LABELS.get(feature, feature)}: {value}"
 
 RISK_META = {
     "Low Risk":      {"class": "low-risk",       "icon": "🟢", "color": "#22C55E"},
@@ -733,7 +774,6 @@ with right_col:
         # ── SHAP Explainability (NEW AI BRAIN) ──
         if prediction == "Churn":
             # 1. Calculate SHAP values
-            import numpy as np
             shap_vals = explainer.shap_values(processed)
             
             # Safely flatten whatever shape SHAP returns into a simple 1D list of numbers
@@ -745,34 +785,69 @@ with right_col:
             # Keep only the numbers corresponding to our features
             churn_shap_values = churn_shap_values[-len(model_columns):]
             
-            # 2. Match values to features and sort top 3 positive impacts
-            feature_impacts = dict(zip(model_columns, churn_shap_values))
-            
-            # Force conversion to float to prevent truth value errors
-            top_churn_drivers = sorted(
-                [item for item in feature_impacts.items() if float(item[1]) > 0], 
-                key=lambda x: float(x[1]), 
-                reverse=True
-            )[:3]
+            # 2. Build a structured SHAP explanation table
+            feature_df = pd.DataFrame({
+                "Feature": model_columns,
+                "SHAP": churn_shap_values
+            })
 
-            # 3. Display them beautifully in the UI
-            if top_churn_drivers:
-                st.markdown('<div class="section-heading" style="margin-top:1rem;">🔍 Key Churn Drivers (For This Customer)</div>', unsafe_allow_html=True)
-                
-                for feature, impact in top_churn_drivers:
-                    # Get the actual value the customer inputted for this feature
-                    actual_value = processed[feature].iloc[0]
+            # Add the actual customer values used for prediction
+            feature_df["Value"] = [
+                processed[col].iloc[0]
+                for col in feature_df["Feature"]
+            ]
+
+            # Keep only positive SHAP contributions
+            feature_df = feature_df[
+                feature_df["SHAP"] > 0
+            ]
+
+            # Sort from strongest contributor to weakest
+            feature_df = feature_df.sort_values(
+                by="SHAP",
+                ascending=False
+            )
+
+            # Top 3 reasons behind churn prediction
+            top_churn_drivers = feature_df.head(3)
+
+            if not top_churn_drivers.empty:
+
+                st.markdown(
+                    '<div class="section-heading" style="margin-top:1rem;">🔍 Why the AI Predicted Churn</div>',
+                    unsafe_allow_html=True
+                )
+
+                for _, row in top_churn_drivers.iterrows():
+
+                    feature = row["Feature"]
+                    impact = float(row["SHAP"])
+                    value = row["Value"]
+
                     clean_name = FEATURE_LABELS.get(feature, feature)
-                    
-                    # Translate confusing 0 values into plain English
-                    if "Country" in feature and actual_value == 0:
-                        friendly_name = f"Not from {feature.split('_')[1]}"
-                    elif "Gender" in feature and actual_value == 0:
-                        friendly_name = "Gender: Female"
-                    else:
-                        friendly_name = f"{clean_name} (Value: {actual_value})"
-                        
-                    st.markdown(f"- **{friendly_name}** (Impact risk: `+{impact:.3f}`)")
+
+                    if feature == "Country_Germany":
+                        value = "Germany" if value == 1 else "Not Germany"
+
+                    elif feature == "Country_Spain":
+                        value = "Spain" if value == 1 else "Not Spain"
+
+                    elif feature == "Gender_Male":
+                        value = "Male" if value == 1 else "Female"
+
+                    elif feature == "IsActiveMember":
+                        value = "Yes" if value == 1 else "No"
+
+                    elif feature == "HasCrCard":
+                        value = "Yes" if value == 1 else "No"
+
+                    st.markdown(
+                        f"""
+            - **{clean_name}**
+                - Customer Value: `{value}`
+                - SHAP Contribution: `+{impact:.3f}`
+            """
+                    )
             
             # ── AI Retention Copilot (GenAI) ──
         if prediction == "Churn":
