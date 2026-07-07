@@ -1149,7 +1149,7 @@ with right_col:
         show_recommendation = True
         show_policy = risk in ["Moderate Risk", "High Risk", "Critical Risk"]
         show_customer_summary = show_policy
-        show_shap = risk in ["High Risk", "Critical Risk"]
+        show_shap = True
         show_ai = risk in ["High Risk", "Critical Risk"]
         
                     # ── Intelligent Retention Recommendation ────────────────────────
