@@ -554,57 +554,369 @@ def build_importance_chart(mdl, columns: list) -> go.Figure:
     )
     return fig
 # ── Internal Bank Knowledge Base (RAG Context) ──
-BANK_POLICIES = """
-- High-Balance Customers (Balance > $100k): Eligible for 'Premium Wealth' tier, which includes a dedicated financial advisor and 0% wire fees.
-- Loyal Customers (Tenure >= 5 years): Eligible for a lifetime fee-free credit card and a 0.5% APY bonus on all savings accounts.
-- Inactive Customers (Active = No): Eligible for a 'Reactivation Campaign' offering a $200 cash bonus for setting up direct deposit.
-- Senior Customers (Age >= 55): Eligible for 'Senior Priority Banking', offering free cashier's checks, estate planning consultations, and higher CD yields.
-- Multi-Product Customers (Products >= 3): Eligible for consolidated relationship pricing (discounts on mortgage and auto loan rates).
-"""
-def generate_retention_strategy(api_key, customer_data, top_drivers):
-    client = Groq(api_key=api_key)
-    
-    # Format the top reasons into text for the AI to read
-    drivers_text = "\n".join([f"- {FEATURE_LABELS.get(f, f)} (Impact: +{imp:.3f})" for f, imp in top_drivers])
-    
-    # The Prompt: Telling the AI how to act
-    prompt = f"""
-    You are an expert Bank Customer Retention Strategist. 
-    A high-risk customer has been flagged for potential churn.
-    
-    Customer Profile:
-    - Age: {customer_data['Age']}
-    - Gender: {customer_data['Gender']}
-    - Balance: ${customer_data['Balance']:,.2f}
-    - Tenure: {customer_data['Tenure']} years
-    - Products: {customer_data['NumOfProducts']}
-    - Active Member: {'Yes' if customer_data['IsActiveMember'] else 'No'}
-    - Country: {customer_data['Country']}
-    Top reasons the AI flagged this customer for churn:
-    {drivers_text}
-    Bank Internal Policies & Offers:
-    {BANK_POLICIES}
-    
-    Task: 
-    1. Analyze the Customer Profile and the SHAP churn drivers.
-    2. Select the most relevant offer from the "Bank Internal Policies" that specifically addresses their churn risk.
-    3. Write a highly personalized, 2-to-3 sentence strategy for the account manager to use. 
-    
-    Do not use pleasantries or greetings. Be specific, actionable, and explicitly mention the bank policy you are applying.
-    """
-    
-    try:
-        client = Groq(api_key=api_key)
-        response = client.chat.completions.create(
-            messages=[{"role": "user", "content": prompt}],
-            model="llama-3.3-70b-versatile",
-            temperature=0.7,
-            max_tokens=200
-        )
-        return response.choices[0].message.content
-    except Exception as e:
-        return f"Error connecting to AI: {str(e)}"
+BANK_POLICIES = {
 
+    "PREMIUM_WEALTH": {
+        "title": "Premium Wealth Banking",
+        "eligibility": "Account balance greater than $100,000",
+        "objective": "Retain high-value customers through premium relationship management.",
+        "benefits": [
+            "Dedicated Relationship Manager",
+            "Priority customer support",
+            "Free domestic and international wire transfers",
+            "Quarterly portfolio review",
+            "Exclusive investment products"
+        ],
+        "action": "Assign the customer to the Premium Wealth team and schedule a financial planning consultation."
+    },
+
+    "LOYALTY_REWARDS": {
+        "title": "Loyalty Rewards Program",
+        "eligibility": "Customer tenure of at least 5 years",
+        "objective": "Reward long-term customers and strengthen engagement.",
+        "benefits": [
+            "Lifetime annual fee waiver",
+            "Savings account bonus interest",
+            "Higher reward points"
+        ],
+        "action": "Enroll the customer into the loyalty program and communicate exclusive benefits."
+    },
+
+    "REACTIVATION_PROGRAM": {
+        "title": "Customer Reactivation Campaign",
+        "eligibility": "Inactive customers",
+        "objective": "Increase customer engagement and restore account activity.",
+        "benefits": [
+            "$200 direct deposit bonus",
+            "Mobile banking assistance",
+            "Personalized onboarding support"
+        ],
+        "action": "Contact the customer within 48 hours and encourage activation of digital banking services."
+    },
+
+    "SENIOR_BANKING": {
+        "title": "Senior Priority Banking",
+        "eligibility": "Customer age 55 years or older",
+        "objective": "Provide enhanced banking support for senior customers.",
+        "benefits": [
+            "Priority branch service",
+            "Estate planning consultation",
+            "Higher certificate of deposit rates",
+            "Free cashier's checks"
+        ],
+        "action": "Introduce the customer to a Senior Banking advisor."
+    },
+
+    "RELATIONSHIP_PRICING": {
+        "title": "Relationship Pricing Program",
+        "eligibility": "Three or more banking products",
+        "objective": "Increase customer stickiness through bundled financial products.",
+        "benefits": [
+            "Mortgage rate discount",
+            "Auto loan discount",
+            "Bundled account pricing"
+        ],
+        "action": "Review existing products and recommend bundled pricing."
+    },
+
+    "DIGITAL_BANKING": {
+        "title": "Digital Banking Adoption",
+        "eligibility": "Customer not actively using digital services",
+        "objective": "Improve engagement through digital channels.",
+        "benefits": [
+            "Free financial insights dashboard",
+            "Real-time spending alerts",
+            "Bill payment automation"
+        ],
+        "action": "Schedule a digital banking onboarding session."
+    },
+
+    "LOW_PRODUCT_EXPANSION": {
+        "title": "Product Expansion Offer",
+        "eligibility": "Customer owns only one banking product",
+        "objective": "Increase relationship depth.",
+        "benefits": [
+            "Pre-approved credit card",
+            "Savings account bonus",
+            "Reduced loan processing fees"
+        ],
+        "action": "Recommend a complementary banking product aligned with customer needs."
+    },
+
+    "BALANCE_RETENTION": {
+        "title": "Balance Retention Program",
+        "eligibility": "High account balance with low engagement",
+        "objective": "Protect valuable deposits.",
+        "benefits": [
+            "Investment consultation",
+            "Personalized wealth planning",
+            "Premium savings products"
+        ],
+        "action": "Arrange a meeting with a wealth advisor."
+    },
+
+    "CREDIT_BUILDING": {
+        "title": "Credit Improvement Program",
+        "eligibility": "Credit score below 650",
+        "objective": "Improve long-term customer financial health.",
+        "benefits": [
+            "Credit education resources",
+            "Secured credit products",
+            "Credit monitoring"
+        ],
+        "action": "Recommend enrollment into the bank's credit improvement program."
+    },
+
+    "CUSTOMER_CARE": {
+        "title": "Relationship Manager Outreach",
+        "eligibility": "High predicted churn risk",
+        "objective": "Provide proactive human engagement.",
+        "benefits": [
+            "Dedicated account review",
+            "Complaint resolution",
+            "Customized retention offer"
+        ],
+        "action": "Schedule a proactive relationship manager call within 24 hours."
+    }
+
+}
+def retrieve_relevant_policies(customer_data, top_k=3):
+    """
+    Rule-based policy retriever.
+
+    Each policy receives a relevance score based on
+    the current customer's profile.
+
+    Returns the top-k most relevant policies.
+    """
+
+    scored_policies = []
+
+    for policy_id, policy in BANK_POLICIES.items():
+
+        score = 0
+
+        # Premium customers
+        if (
+            policy_id in ["PREMIUM_WEALTH", "BALANCE_RETENTION"]
+            and customer_data["Balance"] >= 100000
+        ):
+            score += 3
+
+        # Long-term customers
+        if (
+            policy_id == "LOYALTY_REWARDS"
+            and customer_data["Tenure"] >= 5
+        ):
+            score += 3
+
+        # Seniors
+        if (
+            policy_id == "SENIOR_BANKING"
+            and customer_data["Age"] >= 55
+        ):
+            score += 3
+
+        # Inactive members
+        if (
+            policy_id in ["REACTIVATION_PROGRAM", "DIGITAL_BANKING"]
+            and customer_data["IsActiveMember"] == 0
+        ):
+            score += 4
+
+        # Single product customers
+        if (
+            policy_id == "LOW_PRODUCT_EXPANSION"
+            and customer_data["NumOfProducts"] == 1
+        ):
+            score += 3
+
+        # Multi-product customers
+        if (
+            policy_id == "RELATIONSHIP_PRICING"
+            and customer_data["NumOfProducts"] >= 3
+        ):
+            score += 3
+
+        # Low credit score
+        if (
+            policy_id == "CREDIT_BUILDING"
+            and customer_data["CreditScore"] < 650
+        ):
+            score += 2
+
+        # Generic relationship management
+        if policy_id == "CUSTOMER_CARE":
+            score += 1
+
+        scored_policies.append(
+            {
+                "score": score,
+                "policy": policy
+            }
+        )
+
+    scored_policies = sorted(
+        scored_policies,
+        key=lambda x: x["score"],
+        reverse=True
+    )
+
+    return [
+        item["policy"]
+        for item in scored_policies[:top_k]
+    ]
+    
+def generate_retention_strategy(
+    api_key,
+    customer_data,
+    top_drivers,
+    churn_probability
+):
+    """
+    Generates a personalized retention strategy using:
+    1. Customer profile
+    2. SHAP feature contributions
+    3. Retrieved internal bank policies
+    """
+
+    client = Groq(api_key=api_key)
+
+    # -----------------------------
+    # Retrieve relevant policies
+    # -----------------------------
+    retrieved_policies = retrieve_relevant_policies(customer_data)
+
+    policy_context = ""
+
+    for policy in retrieved_policies:
+
+        policy_context += f"""
+Policy: {policy['title']}
+
+Eligibility:
+{policy['eligibility']}
+
+Objective:
+{policy['objective']}
+
+Benefits:
+{', '.join(policy['benefits'])}
+
+Recommended Action:
+{policy['action']}
+
+----------------------------------------
+"""
+
+    # -----------------------------
+    # Format SHAP explanations
+    # -----------------------------
+    drivers = []
+
+    for _, row in top_drivers.iterrows():
+
+        feature = row["Feature"]
+        value = row["Value"]
+        impact = float(row["SHAP"])
+
+        clean_name = FEATURE_LABELS.get(feature, feature)
+
+        if feature == "Country_Germany":
+            value = "Germany" if value == 1 else "Not Germany"
+
+        elif feature == "Country_Spain":
+            value = "Spain" if value == 1 else "Not Spain"
+
+        elif feature == "Gender_Male":
+            value = "Male" if value == 1 else "Female"
+
+        elif feature == "IsActiveMember":
+            value = "Yes" if value == 1 else "No"
+
+        elif feature == "HasCrCard":
+            value = "Yes" if value == 1 else "No"
+
+        drivers.append(
+            f"""Feature: {clean_name}
+Customer Value: {value}
+SHAP Contribution: +{impact:.3f}"""
+        )
+
+    drivers_text = "\n\n".join(drivers)
+
+    # -----------------------------
+    # Prompt
+    # -----------------------------
+    prompt = f"""
+You are a Senior Customer Retention Strategist at a retail bank.
+
+Your task is to recommend ONE practical and personalized retention strategy.
+
+Use ONLY the following information.
+
+==================================================
+
+CUSTOMER PROFILE
+Predicted Churn Probability: {churn_probability:.1%}
+Age: {customer_data['Age']}
+Gender: {customer_data['Gender']}
+Balance: ${customer_data['Balance']:,.2f}
+Tenure: {customer_data['Tenure']} years
+Products Owned: {customer_data['NumOfProducts']}
+Active Member: {"Yes" if customer_data['IsActiveMember'] else "No"}
+Country: {customer_data['Country']}
+
+==================================================
+
+TOP CHURN DRIVERS
+
+{drivers_text}
+
+==================================================
+
+RETRIEVED INTERNAL BANK POLICIES
+
+{policy_context}
+
+==================================================
+
+Instructions
+
+1. First identify why this customer is likely to churn.
+
+2. Select ONLY ONE retrieved bank policy that best addresses the churn risk.
+
+3. Explain WHY that policy fits this customer.
+
+4. Write a concise action plan for the relationship manager.
+
+5. Never invent bank offers.
+
+6. Never mention AI, SHAP, machine learning or prediction models.
+
+7. Keep the response under 150 words.
+"""
+
+    try:
+
+        response = client.chat.completions.create(
+            model="llama-3.3-70b-versatile",
+            temperature=0.3,
+            max_tokens=220,
+            messages=[
+                {
+                    "role": "user",
+                    "content": prompt
+                }
+            ]
+        )
+
+        return response.choices[0].message.content
+
+    except Exception as e:
+
+        return f"Error connecting to AI: {str(e)}"
 # ─────────────────────────────────────────────────────────
 # Page header
 # ─────────────────────────────────────────────────────────
@@ -860,7 +1172,8 @@ with right_col:
                     ai_strategy = generate_retention_strategy(
                         api_key=groq_api_key,
                         customer_data=customer_data,
-                        top_drivers=top_churn_drivers
+                        top_drivers=top_churn_drivers,
+                        churn_probability=churn_prob
                     )
                     
                     st.markdown(f"""
