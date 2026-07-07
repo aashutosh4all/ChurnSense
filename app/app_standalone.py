@@ -83,10 +83,29 @@ RISK_META = {
 }
 
 RETENTION_META = {
-    "Low Risk":      ("💚", "Customer appears stable. Continue regular engagement and standard communication cadence."),
-    "Moderate Risk": ("👀", "Monitor activity closely and offer personalised loyalty rewards or check-in calls."),
-    "High Risk":     ("⚡", "Prioritise direct retention outreach with targeted incentives and dedicated support."),
-    "Critical Risk": ("🚨", "Immediate intervention required : escalate to premium support team with personalised offer."),
+    "Low Risk": {
+        "title": "Maintain Relationship",
+        "icon": "💚",
+        "default": "Customer appears stable. Continue regular engagement and periodic satisfaction monitoring."
+    },
+
+    "Moderate Risk": {
+        "title": "Preventive Engagement",
+        "icon": "👀",
+        "default": "Recommend proactive outreach with loyalty rewards or a relationship review before dissatisfaction increases."
+    },
+
+    "High Risk": {
+        "title": "Priority Retention",
+        "icon": "⚡",
+        "default": "Immediate retention outreach is recommended. Consider personalised offers and assign a relationship manager."
+    },
+
+    "Critical Risk": {
+        "title": "Escalate Immediately",
+        "icon": "🚨",
+        "default": "Critical churn risk detected. Escalate to the customer retention team with the strongest available retention package."
+    }
 }
 
 
@@ -1026,12 +1045,27 @@ with right_col:
         processed   = preprocess_input(customer_data)
         churn_prob  = float(model.predict_proba(processed.values)[0][1])
         churn_pct   = round(churn_prob * 100, 2)
+        # Retrieve internal policies relevant to this customer
+        retrieved_policies = retrieve_relevant_policies(customer_data)
         prediction  = "Churn" if churn_prob >= threshold else "No Churn"
         risk        = get_risk_level(churn_prob)
         risk_color  = RISK_META[risk]["color"]
         risk_icon   = RISK_META[risk]["icon"]
         risk_class  = RISK_META[risk]["class"]
-        ret_icon, ret_text = RETENTION_META[risk]
+        retention_info = RETENTION_META[risk]
+        ret_icon = retention_info["icon"]
+        ret_title = retention_info["title"]
+        ret_default = retention_info["default"]
+        if retrieved_policies:
+            top_policy = retrieved_policies[0]
+
+            recommendation_text = (
+                f"{ret_default}<br><br>"
+                f"<b>Recommended Internal Policy</b><br>"
+                f"{top_policy['title']}"
+            )
+        else:
+            recommendation_text = ret_default
         pred_color  = "#EF4444" if prediction == "Churn" else "#22C55E"
         delta_from_threshold = churn_pct - threshold * 100
 
@@ -1176,15 +1210,20 @@ with right_col:
                         churn_probability=churn_prob
                     )
                     
-                    st.markdown(f"""
-                    <div class="retention-box a6">
-                        <div class="ret-icon">✨</div>
-                        <div>
-                            <div class="ret-label">Personalized Action Plan (Groq / Llama 3)</div>
-                            <div class="ret-text" style="font-weight: 500;">{ai_strategy}</div>
+                    st.markdown(
+                        f"""
+                        <div class="retention-box a5">
+                            <div class="ret-icon">{ret_icon}</div>
+                            <div>
+                                <div class="ret-label">{ret_title}</div>
+                                <div class="ret-text">
+                                    {recommendation_text}
+                                </div>
+                            </div>
                         </div>
-                    </div>""", unsafe_allow_html=True)
-
+                        """,
+                        unsafe_allow_html=True
+                    )
         # ── Feature importance ──
         with st.expander("📊 Feature Importance (model-level)"):
             st.caption("Top 8 features by mean impurity decrease — not customer-specific.")
